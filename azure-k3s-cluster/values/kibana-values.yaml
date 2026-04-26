@@ -1,0 +1,16 @@
+﻿service:
+  type: ClusterIP
+
+ingress:
+  enabled: false
+  hosts:
+    - host: ${kibana_host}
+      paths:
+        - path: /
+          pathType: Prefix
+
+elasticsearchHosts: "https://elasticsearch-master:9200"
+
+extraEnvs:
+  - name: ELASTICSEARCH_SSL_VERIFICATIONMODE
+    value: none

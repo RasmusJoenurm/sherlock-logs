@@ -1,0 +1,12 @@
+GitOps Galaxy chart installed.
+
+Frontend service:
+  {{ include "myapp.frontendName" . }}:{{ .Values.frontend.service.port }}
+
+Backend service:
+  {{ include "myapp.backendName" . }}:{{ .Values.backend.service.port }}
+
+If ingress is enabled, access the app through:
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}{{ .frontendPath | default "/" }}
+{{- end }}

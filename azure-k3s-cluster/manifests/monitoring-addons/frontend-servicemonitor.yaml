@@ -1,0 +1,21 @@
+﻿apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: frontend-servicemonitor
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - app-dev
+      - app-prod
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: frontend
+  endpoints:
+    - port: http
+      path: /health
+      interval: 15s
+      scheme: http
+

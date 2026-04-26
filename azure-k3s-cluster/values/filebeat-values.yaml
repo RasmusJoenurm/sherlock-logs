@@ -1,0 +1,51 @@
+﻿filebeatConfig:
+  filebeat.yml: |
+    filebeat.inputs:
+
+      - type: container
+        paths:
+          - /var/log/containers/*.log
+        fields:
+          log_type: docker
+        fields_under_root: true
+
+      - type: log
+        paths:
+          - /var/log/syslog
+          - /var/log/dmesg
+        fields:
+          log_type: system
+        fields_under_root: true
+
+      - type: log
+        paths:
+          - /var/log/app/*.log
+        fields:
+          log_type: application
+        fields_under_root: true
+
+    processors:
+      - add_host_metadata: ~
+      - add_cloud_metadata: ~
+
+    output.elasticsearch:
+      hosts: ["https://elasticsearch-master:9200"]
+      username: ${ELASTIC_USERNAME}
+      password: ${ELASTIC_PASSWORD}
+      ssl.verification_mode: none
+
+    setup.kibana:
+      host: "https://kibana-kibana:5601"
+      ssl.verification_mode: none
+
+extraEnvs:
+  - name: ELASTIC_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: elastic-credentials
+        key: username
+  - name: ELASTIC_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: elastic-credentials
+        key: password

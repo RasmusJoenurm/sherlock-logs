@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: elasticsearch-exporter
+  namespace: argocd
+spec:
+  project: gitops-galaxy
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: prometheus-elasticsearch-exporter
+    targetRevision: 6.7.0
+    helm:
+      values: |
+        es:
+          uri: "https://elasticsearch-master.elastic.svc.cluster.local:9200"
+          sslSkipVerify: true
+          existingSecret:
+            name: elastic-credentials
+            key:
+              username: username
+              password: password
+        serviceMonitor:
+          enabled: true
+          labels:
+            release: kube-prometheus-stack
+          interval: 30s
+          namespace: monitoring
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: elastic
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - RespectIgnoreDifferences=true

@@ -1,0 +1,136 @@
+﻿name: gitops-cicd
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate image tag
+        id: meta
+        run: echo "image_tag=1.0.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ steps.meta.outputs.image_tag }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ steps.meta.outputs.image_tag }}
+
+      - name: Update dev Helm values
+        run: |
+          sed -i "s/tag: \".*\"/tag: \"${{ steps.meta.outputs.image_tag }}\"/" azure-k3s-cluster/myapp/values-dev.yaml
+
+      - name: Commit and push values update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add azure-k3s-cluster/myapp/values-dev.yaml
+          git commit -m "ci: update dev image tags to ${{ steps.meta.outputs.image_tag }}" || echo "No changes to commit"
+          git push
+
+  deploy-dev:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - name: Install Argo CD CLI
+        run: |
+          curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x argocd
+          sudo mv argocd /usr/local/bin/argocd
+
+      - name: Login to Argo CD
+        run: |
+          argocd login "${{ secrets.ARGOCD_SERVER }}" --insecure --username "admin" --password "${{ secrets.ARGOCD_AUTH_TOKEN }}"
+
+      - name: Ensure applications exist
+        run: |
+          argocd app create gitops-galaxy-root \
+            --repo https://github.com/RasmusJoenurm/sherlock-logs.git \
+            --path azure-k3s-cluster/manifests/argocd/apps \
+            --dest-server https://kubernetes.default.svc \
+            --dest-namespace argocd \
+            --upsert
+
+      - name: Sync dev and wait
+        run: |
+          argocd app sync gitops-galaxy-root
+          argocd app wait gitops-galaxy-root --health --timeout 600
+          argocd app sync myapp-dev
+          argocd app wait myapp-dev --health --timeout 600
+
+      - name: Rollback on failure
+        if: failure()
+        run: argocd app rollback myapp-dev
+
+  promote-prod:
+    runs-on: ubuntu-latest
+    needs: [deploy-dev, build-and-push]
+    environment:
+      name: production
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update prod Helm values
+        run: |
+          sed -i "s/tag: \".*\"/tag: \"${{ needs.build-and-push.outputs.image_tag }}\"/" azure-k3s-cluster/myapp/values-prod.yaml
+
+      - name: Commit and push prod values update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add azure-k3s-cluster/myapp/values-prod.yaml
+          git commit -m "ci: promote prod image tags to ${{ needs.build-and-push.outputs.image_tag }}" || echo "No changes to commit"
+          git push
+
+  deploy-prod:
+    runs-on: ubuntu-latest
+    needs: promote-prod
+    steps:
+      - name: Install Argo CD CLI
+        run: |
+          curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x argocd
+          sudo mv argocd /usr/local/bin/argocd
+
+      - name: Login to Argo CD
+        run: |
+          argocd login "${{ secrets.ARGOCD_SERVER }}" --insecure --username "admin" --password "${{ secrets.ARGOCD_AUTH_TOKEN }}"
+
+      - name: Sync prod and wait
+        run: |
+          argocd app sync gitops-galaxy-root
+          argocd app wait gitops-galaxy-root --health --timeout 600
+          argocd app sync myapp-prod
+          argocd app wait myapp-prod --health --timeout 600
+
+      - name: Rollback on failure
+        if: failure()
+        run: argocd app rollback myapp-prod
+

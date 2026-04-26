@@ -1,0 +1,60 @@
+﻿apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: filebeat
+  namespace: argocd
+spec:
+  project: gitops-galaxy
+  source:
+    repoURL: https://helm.elastic.co
+    chart: filebeat
+    targetRevision: 8.5.1
+    helm:
+      values: |
+        filebeatConfig:
+          filebeat.yml: |
+            filebeat.inputs:
+              - type: container
+                paths:
+                  - /var/log/containers/*.log
+                fields:
+                  log_type: docker
+                fields_under_root: true
+              - type: log
+                paths:
+                  - /var/log/syslog
+                  - /var/log/dmesg
+                fields:
+                  log_type: system
+                fields_under_root: true
+            processors:
+              - add_host_metadata: ~
+              - add_cloud_metadata: ~
+              - add_kubernetes_metadata:
+                  host: ${NODE_NAME}
+                  matchers:
+                    - logs_path:
+                        logs_path: "/var/log/containers/"
+            output.logstash:
+              hosts: ["logstash.elastic.svc.cluster.local:5044"]
+            setup.kibana:
+              host: "https://kibana-kibana:5601"
+              ssl.verification_mode: none
+        extraEnvs:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: elastic
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - RespectIgnoreDifferences=true
+

@@ -1,0 +1,237 @@
+﻿grafana:
+  adminPassword: "${grafana_admin_password}"
+  ingress:
+    enabled: false
+    hosts:
+      - "${grafana_host}"
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      access: proxy
+      url: http://loki-stack:3100
+      isDefault: false
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    replicas: 1
+
+  config:
+    global:
+      resolve_timeout: 5m
+
+    route:
+      receiver: discord-warning
+      group_by: ['alertname', 'namespace', 'pod', 'job']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 2h
+
+      routes:
+        - receiver: discord-critical
+          matchers:
+            - severity="critical"
+          continue: false
+
+        - receiver: discord-warning
+          matchers:
+            - severity="warning"
+          continue: false
+
+    inhibit_rules:
+      - source_matchers:
+          - severity="critical"
+        target_matchers:
+          - severity="warning"
+        equal:
+          - alertname
+          - namespace
+          - pod
+
+    receivers:
+      - name: discord-warning
+        discord_configs:
+          - webhook_url: "${discord_webhook_url}"
+            send_resolved: true
+            title: '[WARNING] {{ .CommonLabels.alertname }}'
+            message: |
+              {{ range .Alerts -}}
+              **Summary:** {{ .Annotations.summary }}
+              **Description:** {{ .Annotations.description }}
+              **Severity:** {{ .Labels.severity }}
+              **Namespace:** {{ .Labels.namespace }}
+              **Pod:** {{ .Labels.pod }}
+              {{ end }}
+
+      - name: discord-critical
+        discord_configs:
+          - webhook_url: "${discord_webhook_url}"
+            send_resolved: true
+            title: '[CRITICAL] {{ .CommonLabels.alertname }}'
+            message: |
+              {{ range .Alerts -}}
+              **Summary:** {{ .Annotations.summary }}
+              **Description:** {{ .Annotations.description }}
+              **Severity:** {{ .Labels.severity }}
+              **Namespace:** {{ .Labels.namespace }}
+              **Pod:** {{ .Labels.pod }}
+              {{ end }}
+
+additionalPrometheusRulesMap:
+  custom-alerts:
+    groups:
+      # ── Mandatory threshold alerts (Sherlock Logs requirements) ─────────────
+      - name: mandatory.threshold.rules
+        rules:
+          # CPU > 80% for more than 5 minutes (node-level, percentage-based)
+          - alert: NodeCPUHighUsage
+            expr: |
+              (1 - avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100 > 80
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Node CPU usage above 80%"
+              description: "Node {{ $labels.instance }} CPU usage is {{ $value | humanize }}% (threshold: 80%) for more than 5 minutes."
+
+          # Disk space below 20%
+          - alert: NodeDiskLow
+            expr: |
+              (
+                node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} /
+                node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}
+              ) * 100 < 20
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Node disk space below 20%"
+              description: "Node {{ $labels.instance }} filesystem {{ $labels.mountpoint }} has only {{ $value | humanize }}% free (threshold: 20%)."
+
+          # Memory > 90% for more than 5 minutes (node-level)
+          - alert: NodeMemoryHighUsage
+            expr: |
+              (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 90
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Node memory usage above 90%"
+              description: "Node {{ $labels.instance }} memory usage is {{ $value | humanize }}% (threshold: 90%) for more than 5 minutes."
+
+          # Container restarts more than 3 times in 15 minutes
+          - alert: ContainerRestartingFrequently
+            expr: |
+              increase(kube_pod_container_status_restarts_total[15m]) > 3
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Container restarting too frequently"
+              description: "Container {{ $labels.container }} in pod {{ $labels.pod }} (namespace: {{ $labels.namespace }}) has restarted {{ $value }} times in the last 15 minutes."
+
+          # Container memory usage > 80% of its configured limit
+          - alert: ContainerMemoryLimitHigh
+            expr: |
+              (
+                container_memory_working_set_bytes{container!="", pod!=""}
+                /
+                kube_pod_container_resource_limits{resource="memory", unit="byte"}
+              ) * 100 > 80
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Container memory usage above 80% of limit"
+              description: "Container {{ $labels.container }} in pod {{ $labels.pod }} is using {{ $value | humanize }}% of its memory limit."
+
+          # Any target (VM/node) becomes unreachable
+          - alert: InstanceDown
+            expr: up == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Instance unreachable"
+              description: "Instance {{ $labels.instance }} (job: {{ $labels.job }}) has been unreachable for more than 1 minute."
+
+          # Elasticsearch cluster status yellow or red
+          - alert: ElasticsearchClusterNotHealthy
+            expr: |
+              elasticsearch_cluster_health_status{color=~"yellow|red"} == 1
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Elasticsearch cluster is unhealthy"
+              description: "Elasticsearch cluster {{ $labels.cluster }} status is {{ $labels.color }}. Check cluster nodes and shards."
+
+      # ── Advanced alerting (trend-based and combination) ────────────────────
+      - name: custom.advanced.rules
+        rules:
+          # p95 backend latency above 1 second for 5 minutes (trend-based)
+          - alert: BackendHighLatencyP95
+            expr: |
+              histogram_quantile(
+                0.95,
+                sum by (le) (
+                  rate(http_request_duration_seconds_bucket{job=~".*backend.*"}[5m])
+                )
+              ) > 1
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Backend p95 latency is high"
+              description: "95th percentile backend latency has been above 1 second for 5 minutes."
+
+          # Frontend HTTP error rate spike (trend-based)
+          - alert: BackendErrorRateHigh
+            expr: |
+              sum(rate(http_requests_total{status_code=~"5.."}[5m]))
+              /
+              sum(rate(http_requests_total[5m])) * 100 > 5
+            for: 3m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Backend HTTP error rate above 5%"
+              description: "Backend 5xx error rate has been above 5% for 3 minutes."
+
+          # Combination: high memory AND restarting (combination-based)
+          - alert: PodMemoryPressureAndRestarts
+            expr: |
+              (
+                (
+                  sum by (namespace, pod, container) (
+                    container_memory_working_set_bytes{container!="", image!="", pod!=""}
+                  )
+                  /
+                  sum by (namespace, pod, container) (
+                    kube_pod_container_resource_limits{resource="memory", unit="byte"}
+                  )
+                ) > 0.85
+              )
+              and on(namespace, pod, container)
+              (
+                increase(kube_pod_container_status_restarts_total[10m]) > 2
+              )
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Pod has memory pressure and restart trend"
+              description: "Container {{ $labels.container }} memory usage is above 85% of its limit AND restarted more than 2 times in the last 10 minutes."
+
+          # Sustained pod-level CPU high (trend: high for 10 min straight)
+          - alert: SustainedPodCPUHigh
+            expr: |
+              sum by (namespace, pod) (
+                rate(container_cpu_usage_seconds_total{container!="", image!="", pod!=""}[5m])
+              ) > 0.8
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Sustained high CPU on pod"
+              description: "Pod {{ $labels.pod }} in {{ $labels.namespace }} CPU usage has stayed above 0.8 cores for 10 minutes (trend-based)."

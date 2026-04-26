@@ -1,0 +1,91 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kibana-dashboard-import
+  namespace: elastic
+  annotations:
+    # ArgoCD will re-create this job if the configmap changes (via hook or manual trigger).
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 5
+  activeDeadlineSeconds: 600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        # Wait for Kibana to be healthy before attempting import.
+        - name: wait-for-kibana
+          image: curlimages/curl:8.5.0
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for Kibana to be ready..."
+              until curl -sk -u "${KIBANA_USER}:${KIBANA_PASSWORD}" \
+                "${KIBANA_HOST}/api/status" | grep -q '"level":"available"'; do
+                echo "Kibana not ready, retrying in 10s..."
+                sleep 10
+              done
+              echo "Kibana is ready."
+          env:
+            - name: KIBANA_HOST
+              value: "https://kibana-kibana.elastic.svc.cluster.local:5601"
+            - name: KIBANA_USER
+              valueFrom:
+                secretKeyRef:
+                  name: elastic-credentials
+                  key: username
+            - name: KIBANA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: elastic-credentials
+                  key: password
+      containers:
+        - name: import-dashboards
+          image: curlimages/curl:8.5.0
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              KIBANA="${KIBANA_HOST}"
+              AUTH="${KIBANA_USER}:${KIBANA_PASSWORD}"
+
+              import_dashboard() {
+                local file="$1"
+                local name="$2"
+                echo "Importing ${name}..."
+                curl -sk -u "${AUTH}" \
+                  -X POST "${KIBANA}/api/saved_objects/_import?overwrite=true" \
+                  -H "kbn-xsrf: true" \
+                  -F "file=@${file}" \
+                  | grep -v '"statusCode":4' && echo "${name} imported successfully." \
+                  || echo "Warning: ${name} import had issues (may already exist)."
+              }
+
+              import_dashboard "/dashboards/system-logs-dashboard.ndjson" "System Logs Dashboard"
+              import_dashboard "/dashboards/application-logs-dashboard.ndjson" "Application Logs Dashboard"
+              import_dashboard "/dashboards/docker-logs-dashboard.ndjson" "Docker Logs Dashboard"
+
+              echo "All dashboard imports complete."
+          env:
+            - name: KIBANA_HOST
+              value: "https://kibana-kibana.elastic.svc.cluster.local:5601"
+            - name: KIBANA_USER
+              valueFrom:
+                secretKeyRef:
+                  name: elastic-credentials
+                  key: username
+            - name: KIBANA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: elastic-credentials
+                  key: password
+          volumeMounts:
+            - name: dashboards
+              mountPath: /dashboards
+      volumes:
+        - name: dashboards
+          configMap:
+            name: kibana-dashboards

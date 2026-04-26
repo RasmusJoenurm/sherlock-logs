@@ -1,0 +1,237 @@
+﻿apiVersion: v1
+kind: Namespace
+metadata:
+  name: edge
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myapp-edge-nginx-prod-conf
+  namespace: edge
+data:
+  nginx.conf: |
+    events {}
+
+    http {
+      upstream prod_frontend { server myapp-prod-frontend.app-prod.svc.cluster.local:3000; }
+
+      upstream prod_backend { server myapp-prod-backend.app-prod.svc.cluster.local:8080; }
+
+      server {
+        listen 80;
+        server_name _;
+
+        location = /health {
+          return 200 'OK';
+        }
+
+        location / {
+          return 301 https://$host$request_uri;
+        }
+      }
+
+      server {
+        listen 443 ssl;
+        server_name _;
+
+        ssl_certificate /etc/nginx/tls/tls.crt;
+        ssl_certificate_key /etc/nginx/tls/tls.key;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_prefer_server_ciphers on;
+
+        location = /health {
+          return 200 'OK';
+        }
+
+        location /api/ {
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_pass http://prod_backend;
+        }
+
+        location / {
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_pass http://prod_frontend;
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp-edge-router-prod
+  namespace: edge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: myapp-edge-router-prod
+  template:
+    metadata:
+      labels:
+        app: myapp-edge-router-prod
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+              name: http
+            - containerPort: 443
+              name: https
+          volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: prod-tls
+              mountPath: /etc/nginx/tls
+              readOnly: true
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: myapp-edge-nginx-prod-conf
+        - name: prod-tls
+          secret:
+            secretName: myapp-prod-tls
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-prod-lb
+  namespace: edge
+spec:
+  type: LoadBalancer
+  selector:
+    app: myapp-edge-router-prod
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+    - name: https
+      port: 443
+      targetPort: https
+      protocol: TCP
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myapp-edge-nginx-dev-conf
+  namespace: edge
+data:
+  nginx.conf: |
+    events {}
+
+    http {
+      upstream dev_frontend { server myapp-dev-frontend.app-dev.svc.cluster.local:3000; }
+      upstream dev_backend { server myapp-dev-backend.app-dev.svc.cluster.local:8080; }
+
+      server {
+        listen 80;
+        server_name _;
+
+        location = /health {
+          return 200 'OK';
+        }
+
+        location / {
+          return 301 https://$host$request_uri;
+        }
+      }
+
+      server {
+        listen 443 ssl;
+        server_name _;
+
+        ssl_certificate /etc/nginx/tls/tls.crt;
+        ssl_certificate_key /etc/nginx/tls/tls.key;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_prefer_server_ciphers on;
+
+        location = /health {
+          return 200 'OK';
+        }
+
+        location /api/ {
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_pass http://dev_backend;
+        }
+
+        location / {
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_pass http://dev_frontend;
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp-edge-router-dev
+  namespace: edge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: myapp-edge-router-dev
+  template:
+    metadata:
+      labels:
+        app: myapp-edge-router-dev
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+              name: http
+            - containerPort: 443
+              name: https
+          volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: dev-tls
+              mountPath: /etc/nginx/tls
+              readOnly: true
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: myapp-edge-nginx-dev-conf
+        - name: dev-tls
+          secret:
+            secretName: myapp-dev-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-dev-ilb
+  namespace: edge
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+spec:
+  type: LoadBalancer
+  selector:
+    app: myapp-edge-router-dev
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+    - name: https
+      port: 443
+      targetPort: https
+      protocol: TCP

@@ -1,0 +1,46 @@
+﻿apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-pipeline
+  namespace: elastic
+data:
+  logstash.conf: |
+    input {
+      beats {
+        port => 5044
+      }
+    }
+
+    filter {
+      if [message] =~ /ERROR|Exception|CRITICAL|Failed password|authentication failed| 500 | 502 | 503 | 504 / {
+        mutate {
+          add_tag => ["alert"]
+        }
+      }
+    }
+
+    output {
+      elasticsearch {
+        hosts => ["https://elasticsearch-master.elastic.svc.cluster.local:9200"]
+        index => "logstash-%{+YYYY.MM.dd}"
+        ssl_enabled => true
+        ssl_verification_mode => "none"
+        user => "${ELASTIC_USERNAME}"
+        password => "${ELASTIC_PASSWORD}"
+      }
+
+      if "alert" in [tags] {
+        http {
+          url => "${DISCORD_WEBHOOK_URL}"
+          http_method => "post"
+          format => "json"
+          content_type => "application/json"
+          mapping => {
+            "content" => "🚨 Log alert from Kubernetes: %{message}"
+          }
+        }
+      }
+
+      stdout { codec => rubydebug }
+    }
+

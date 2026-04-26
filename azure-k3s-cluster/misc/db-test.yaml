@@ -1,0 +1,17 @@
+﻿apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-test
+  namespace: database
+spec:
+  template:
+    spec:
+      containers:
+      - name: psql
+        image: postgres:16
+        command:
+        - sh
+        - -c
+        - |
+          PGPASSWORD=admin123 psql -h postgres-postgresql -U postgres -c "SELECT version();"
+      restartPolicy: Never
