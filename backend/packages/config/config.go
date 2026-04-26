@@ -42,7 +42,7 @@ func InitConfig() {
 		envFilePath, _ = filepath.Abs("../.env")
 	}
 	if err := godotenv.Load(envFilePath); err != nil {
-		log.WithField("reason", err.Error()).Fatal("No .env file found")
+		log.WithField("reason", err.Error()).Warn("No .env file found, using environment variables")
 	}
 
 	required := map[string]bool{
