@@ -46,10 +46,12 @@ frontend:
     httpGet:
       path: /
       port: http
+    initialDelaySeconds: 10
   readinessProbe:
     httpGet:
       path: /
       port: http
+    initialDelaySeconds: 10
   autoscaling:
     enabled: false
     minReplicas: 2
@@ -75,12 +77,14 @@ backend:
       memory: 384Mi
   livenessProbe:
     httpGet:
-      path: /health
+      path: /api/health
       port: http
+    initialDelaySeconds: 10
   readinessProbe:
     httpGet:
-      path: /health
+      path: /api/health
       port: http
+    initialDelaySeconds: 10
   autoscaling:
     enabled: false
     minReplicas: 2
