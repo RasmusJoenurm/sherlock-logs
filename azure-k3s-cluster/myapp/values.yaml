@@ -37,7 +37,7 @@ frontend:
   backendBaseUrl: http://myapp-backend:8080
   resources:
     requests:
-      cpu: 100m
+      cpu: 10m
       memory: 128Mi
     limits:
       cpu: 300m
@@ -68,7 +68,7 @@ backend:
     targetPort: 8080
   resources:
     requests:
-      cpu: 150m
+      cpu: 10m
       memory: 192Mi
     limits:
       cpu: 400m

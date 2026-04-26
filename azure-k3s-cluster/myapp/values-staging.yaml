@@ -4,13 +4,13 @@
 frontend:
   image:
     repository: docker.io/rasmusjoenurm/frontend
-    tag: "1.0.29"
+    tag: "1.0.8"
   replicaCount: 2
 
 backend:
   image:
     repository: docker.io/rasmusjoenurm/backend
-    tag: "1.0.29"
+    tag: "1.0.8"
   replicaCount: 2
 
 ingress:
