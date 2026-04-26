@@ -1,4 +1,6 @@
 .vscode
+.idea/
+.DS_Store
 main
 node_modules/
 build/
@@ -16,3 +18,5 @@ override.tf.json
 azure-k3s-cluster/backend.hcl
 IMPLEMENTATION_PLAN.md
 project_descriptions_requirements/
+backend/.env
+backend/.env.test
