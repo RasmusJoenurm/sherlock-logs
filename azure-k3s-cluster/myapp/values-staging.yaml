@@ -1,18 +1,40 @@
-﻿namespace:
+namespace:
   name: app-staging
+
+externalSecrets:
+  enabled: false
+
+database:
+  secretName: app-db-credentials
+  keys:
+    host: host
+    port: port
+    database: database
+    username: username
+    password: password
+  host: "cluster-maximum-snail-pg-dev.postgres.database.azure.com"
+  port: "5432"
+  name: "gitops"
+  username: "pgadmin"
+  password: "C2K#xT8k9FQvh1bnZ+7IjLWf"
+
+appSecrets:
+  keys:
+    jwt: jwt_key
+  jwt_key: "staging-9f3a2c8e1b4d7f6a0e5c2b9d4a1f8e3c"
 
 frontend:
   image:
     repository: docker.io/rasmusjoenurm/frontend
-    tag: "1.0.8"
+    tag: "1.0.9"
   replicaCount: 2
+  backendBaseUrl: http://myapp-backend:8080
 
 backend:
   image:
     repository: docker.io/rasmusjoenurm/backend
-    tag: "1.0.8"
+    tag: "1.0.9"
   replicaCount: 2
 
 ingress:
   enabled: false
-

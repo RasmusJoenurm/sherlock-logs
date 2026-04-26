@@ -26,14 +26,14 @@ appSecrets:
 frontend:
   image:
     repository: docker.io/rasmusjoenurm/frontend
-    tag: "1.0.8"
+    tag: "1.0.9"
   replicaCount: 3
   backendBaseUrl: http://myapp-backend:8080
 
 backend:
   image:
     repository: docker.io/rasmusjoenurm/backend
-    tag: "1.0.8"
+    tag: "1.0.9"
   replicaCount: 3
 
 ingress:
