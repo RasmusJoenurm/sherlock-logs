@@ -278,7 +278,7 @@ variable "postgres_prod_backup_retention_days" {
 variable "postgres_public_network_access_enabled" {
   description = "Whether managed PostgreSQL public network access is enabled"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "postgres_prod_ha_mode" {

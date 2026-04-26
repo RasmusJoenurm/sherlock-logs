@@ -23,7 +23,7 @@ func ConnectDB() (*sql.DB, error) {
 	database := config.Config[config.POSTGRES_DB]
 	host := config.Config[config.POSTGRES_SERVER_HOST]
 
-	dsn := fmt.Sprintf("host=%s port=5432 user=%s password=%s dbname=%s sslmode=disable timezone=Europe/Tallinn connect_timeout=5", host, user, password, database)
+	dsn := fmt.Sprintf("host=%s port=5432 user=%s password=%s dbname=%s sslmode=require timezone=Europe/Tallinn connect_timeout=5", host, user, password, database)
 
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
