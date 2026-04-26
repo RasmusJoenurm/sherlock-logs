@@ -1,0 +1,32 @@
+﻿apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: gitops-galaxy
+  namespace: argocd
+spec:
+  description: GitOps Galaxy project
+  sourceRepos:
+    - "*"
+  destinations:
+    - namespace: app-dev
+      server: https://kubernetes.default.svc
+    - namespace: app-staging
+      server: https://kubernetes.default.svc
+    - namespace: app-prod
+      server: https://kubernetes.default.svc
+    - namespace: db-dev
+      server: https://kubernetes.default.svc
+    - namespace: argocd
+      server: https://kubernetes.default.svc
+    - namespace: monitoring
+      server: https://kubernetes.default.svc
+    - namespace: elastic
+      server: https://kubernetes.default.svc
+    - namespace: external-secrets
+      server: https://kubernetes.default.svc
+    - namespace: edge
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
