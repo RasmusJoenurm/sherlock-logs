@@ -84,7 +84,7 @@ jobs:
 
       - name: Rollback on failure
         if: failure()
-        run: argocd app rollback myapp-dev
+        run: argocd app rollback myapp-dev || echo "Rollback skipped - app may not exist yet"
 
   promote-prod:
     runs-on: ubuntu-latest
