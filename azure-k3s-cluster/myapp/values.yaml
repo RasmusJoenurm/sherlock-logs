@@ -5,8 +5,7 @@ namespace:
   create: true
   name: app-dev
 
-imagePullSecrets:
-  - name: dockerhub-regcred
+imagePullSecrets: []
 
 serviceAccount:
   create: true
@@ -102,20 +101,10 @@ database:
 appSecrets:
   keys:
     jwt: jwt_key
+  jwt_key: ""
 
 externalSecrets:
-  enabled: true
-  secretStoreRef:
-    kind: ClusterSecretStore
-    name: vault-backend
-  refreshInterval: 1h
-  remoteKeys:
-    host: secret/data/gitops-galaxy/dev/database
-    port: secret/data/gitops-galaxy/dev/database
-    database: secret/data/gitops-galaxy/dev/database
-    username: secret/data/gitops-galaxy/dev/database
-    password: secret/data/gitops-galaxy/dev/database
-    jwt: secret/data/gitops-galaxy/dev/database
+  enabled: false
 
 resourceQuota:
   enabled: true

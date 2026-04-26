@@ -1,15 +1,8 @@
-﻿namespace:
+namespace:
   name: app-prod
 
 externalSecrets:
-  enabled: true
-  remoteKeys:
-    host: secret/data/gitops-galaxy/prod/database
-    port: secret/data/gitops-galaxy/prod/database
-    database: secret/data/gitops-galaxy/prod/database
-    username: secret/data/gitops-galaxy/prod/database
-    password: secret/data/gitops-galaxy/prod/database
-    jwt: secret/data/gitops-galaxy/prod/database
+  enabled: false
 
 database:
   secretName: app-db-credentials
@@ -19,6 +12,16 @@ database:
     database: database
     username: username
     password: password
+  host: "cluster-maximum-snail-pg-prod.postgres.database.azure.com"
+  port: "5432"
+  name: "gitops"
+  username: "pgadmin"
+  password: "a7lvFzKl@LRa%T^5FicW!-Cs%"
+
+appSecrets:
+  keys:
+    jwt: jwt_key
+  jwt_key: "prod-2b8d4f1a9e6c3b7d0f5a8e2c1b4d9f6a"
 
 frontend:
   image:

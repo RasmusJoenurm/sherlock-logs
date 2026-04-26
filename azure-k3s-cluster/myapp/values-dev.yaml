@@ -1,15 +1,8 @@
-﻿namespace:
+namespace:
   name: app-dev
 
 externalSecrets:
-  enabled: true
-  remoteKeys:
-    host: secret/data/gitops-galaxy/dev/database
-    port: secret/data/gitops-galaxy/dev/database
-    database: secret/data/gitops-galaxy/dev/database
-    username: secret/data/gitops-galaxy/dev/database
-    password: secret/data/gitops-galaxy/dev/database
-    jwt: secret/data/gitops-galaxy/dev/database
+  enabled: false
 
 database:
   secretName: app-db-credentials
@@ -19,6 +12,16 @@ database:
     database: database
     username: username
     password: password
+  host: "cluster-maximum-snail-pg-dev.postgres.database.azure.com"
+  port: "5432"
+  name: "gitops"
+  username: "pgadmin"
+  password: "C2K#xT8k9FQvh1bnZ+7IjLWf"
+
+appSecrets:
+  keys:
+    jwt: jwt_key
+  jwt_key: "dev-9f3a2c8e1b4d7f6a0e5c2b9d4a1f8e3c"
 
 frontend:
   image:
