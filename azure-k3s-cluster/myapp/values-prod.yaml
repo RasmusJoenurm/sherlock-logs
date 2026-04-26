@@ -16,7 +16,7 @@ database:
   port: "5432"
   name: "gitops"
   username: "pgadmin"
-  password: "a7lvFzKl@LRa%T^5FicW!-Cs%"
+  password: "a7lvFzKl@LRa%T^5FicW!-Cs"
 
 appSecrets:
   keys:
