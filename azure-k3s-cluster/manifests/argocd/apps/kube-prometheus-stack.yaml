@@ -147,3 +147,4 @@ spec:
       - PruneLast=true
       - ApplyOutOfSyncOnly=true
       - RespectIgnoreDifferences=true
+      - ServerSideApply=true
