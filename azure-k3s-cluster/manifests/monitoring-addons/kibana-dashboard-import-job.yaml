@@ -30,7 +30,7 @@ spec:
               echo "Kibana is ready."
           env:
             - name: KIBANA_HOST
-              value: "https://kibana-kibana.elastic.svc.cluster.local:5601"
+              value: "http://kibana-kibana.elastic.svc.cluster.local:5601"
             - name: KIBANA_USER
               valueFrom:
                 secretKeyRef:
@@ -71,7 +71,7 @@ spec:
               echo "All dashboard imports complete."
           env:
             - name: KIBANA_HOST
-              value: "https://kibana-kibana.elastic.svc.cluster.local:5601"
+              value: "http://kibana-kibana.elastic.svc.cluster.local:5601"
             - name: KIBANA_USER
               valueFrom:
                 secretKeyRef:
