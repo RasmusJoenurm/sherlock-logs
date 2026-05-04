@@ -62,17 +62,20 @@ The core idea is a Go + React app deployed across three environments (dev, stagi
 You'll need these installed locally:
 
 - [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) — logged in with `az login`
-- [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.5
+- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
 - [ArgoCD CLI](https://argo-cd.readthedocs.io/en/stable/cli_installation/)
 - [Helm](https://helm.sh/docs/intro/install/)
-- An Azure subscription with ~€30 budget if you want to run it for a couple of days
-- A Discord webhook URL for alerts (create one under Server Settings → Integrations)
-- A Docker Hub account (for CI/CD to push images)
+- An Azure subscription with enough credits to run AKS + two PostgreSQL servers for however long you need. Azure gives [€100 free credits to students](https://azure.microsoft.com/en-us/free/students/) — worth checking if you qualify before putting a card down.
+- A Discord server where you can create a webhook (Server Settings → Integrations → Webhooks)
+- A Docker Hub account for the CI/CD pipeline to push images to
+- A GitHub repository with Actions enabled (fork this repo or mirror it)
 
 ---
 
 ## Setting it up
+
+> Everything below uses your own Azure subscription, Docker Hub account, and Discord webhook. None of the credentials from the original deployment are reusable — Terraform generates fresh passwords on each apply, and secrets are never committed to the repository. You'll be setting up your own isolated instance.
 
 ### 1. Provision the infrastructure
 
