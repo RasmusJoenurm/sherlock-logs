@@ -15,6 +15,8 @@ The core idea is a Go + React app deployed across three environments (dev, stagi
 - **Alerting:** Prometheus rules fire to Alertmanager, which sends Discord notifications. Logstash independently sends Discord messages when it sees ERROR/CRITICAL patterns in logs.
 - **GitOps:** ArgoCD watches this repository. Any change pushed to `main` gets reconciled to the cluster automatically. CI/CD builds images on GitHub Actions and triggers ArgoCD syncs.
 
+> **Repository note:** The submission copy of this project lives on Gitea (`gitea.kood.tech/rasmusjoenurm/sherlock-logs`), but **GitHub is the source of truth**. The CI/CD pipeline runs on GitHub Actions and ArgoCD is configured to pull from the GitHub URL. The Gitea copy is for review only — the pipeline will not run from there.
+
 ---
 
 ## Data flow
